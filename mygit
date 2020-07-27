@@ -23,33 +23,41 @@ RUN_CMD() {
 # ${1} _API
 # ${2} _TOK
 # ${3} _X
-# ${4} _d
-# ${5} _jq
+# ${4} _D
+# ${5} _JQ
 API_CURL() {
 	local _me="API_CURL"
 
 	local _API=${1}
 	local _TOK=${2}
 	local _X=${3}
-	local _d=${4}
-	local _jq=${5}
+	local _D=${4}
+	local _JQ=${5}
+
+	local _d=''
+	[[ ! ${_D} = ' ' ]] && _d="-d"
+
+	local _x=''
+	[[ ! ${_X} = ' ' ]] && _x="-X"
 
 	if [[ ${_DEBUG} ]]; then
 		LOG ${_me}:_API:${_API}
+		LOG ${_me}:_D:${_D}
+		LOG ${_me}:_JQ:${_JQ}
 		LOG ${_me}:_TOK:${_TOK}
 		LOG ${_me}:_X:${_X}
 		LOG ${_me}:_d:${_d}
-		LOG ${_me}:_jq:${_jq}
+		LOG ${_me}:_x:${_x}
 	fi
 
 	curl -s \
-		${_X} \
+		${_x} ${_X} \
 		-H "Accept: application/vnd.github.mercy-preview+json" \
 		-H "Accept: application/vnd.github.v3+json" \
 		-H "Content-Type: application/json" \
 		-H "Authorization: token ${_TOK}" \
-		${_d} \
-		${_API} | jq ${_jq}
+		${_d} "${_D}" \
+		${_API} | jq ${_JQ}
 }
 
 # Add remote in group to global var REMOTE
@@ -222,8 +230,8 @@ o_desc() {
 
 	local _state=0
 	local _X=' ' # curl -X
-	local _d=' ' # curl -d
-	local _jq=".description"
+	local _D=' ' # curl -d
+	local _JQ="-r .description"
 
 	while [[ ${ARGV[${ARGP}]} ]]; do
 		local _ARG=${ARGV[${ARGP}]}
@@ -235,7 +243,7 @@ o_desc() {
 
 			"set")
 				_state=1
-				_X="-X PATCH"
+				_X="PATCH"
 				;;
 			*)
 				echo "usage desc get | set"
@@ -245,7 +253,7 @@ o_desc() {
 		1)
 			_state=0
 			[[ ${_DEBUG} ]] && LOG ${_me}:_ARG:${_ARG}
-			_d="-d \"{\"description\":\"${_ARG}\"}\""
+			_D="{\"description\":\"${_ARG}\"}"
 			;;
 		esac
 	done
@@ -257,8 +265,8 @@ o_desc() {
 		local _API=${_URI}/repos/${_USR}/${REPO}
 		echo ${_r}:${_API}
 		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG ${_me}:_X:${_X}
-		[[ ${_DEBUG} ]] && [[ ${_d} ]] && LOG ${_me}:_d:${_d}
-		API_CURL "${_API}" "${_TOK}" "${_X}" "${_d}" "${_jq}"
+		[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG ${_me}:_D:${_D}
+		API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
 		echo ---
 	done
 }
@@ -332,8 +340,8 @@ o_repo() {
 	local _private=true
 	local _remote=''
 	local _X=' ' # curl -X
-	local _d=' ' # curl -d
-	local _jq="."
+	local _D=' ' # curl -d
+	local _JQ="."
 
 	local _ARG=${ARGV[${ARGP}]}
 	((ARGP++))
@@ -343,7 +351,7 @@ o_repo() {
 		;;
 	"del")
 		_action="del"
-		_X="-X DELETE"
+		_X="DELETE"
 		;;
 	"new")
 		_action="new"
@@ -381,13 +389,13 @@ o_repo() {
 		if [[ "${_action}" = "list" ]]; then
 			_API=${_URI}/user/repos
 			if [ "${_VEN}" = "github" ]; then
-				_jq='-r .[]|select(.archived==false)|{name}|.name'
+				_JQ='-r .[]|select(.archived==false)|{name}|.name'
 			else
-				_jq='-r .[]|{name}|.name'
+				_JQ='-r .[]|{name}|.name'
 			fi
 		elif [[ "${_action}" = "new" ]]; then
 			_API=${_URI}/user/repos
-			_d="-d {\"name\":\"${REPO}\",\"private\":${_private}}"
+			_D="{\"name\":\"${REPO}\",\"private\":${_private}}"
 		elif [[ "${_action}" = "del" ]]; then
 			_API=${_URI}/repos/${_USR}/${REPO}
 		else
@@ -396,8 +404,8 @@ o_repo() {
 		fi
 		echo ${_r}:${_API}
 		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG ${_me}:_X:${_X}
-		[[ ${_DEBUG} ]] && [[ ${_d} ]] && LOG ${_me}:_d:${_d}
-		API_CURL "${_API}" "${_TOK}" "${_X}" "${_d}" "${_jq}"
+		[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG ${_me}:_D:${_D}
+		API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
 		echo ---
 	done
 }
@@ -409,8 +417,9 @@ o_topic() {
 
 	local _state=0
 	local _json=''
+	local _JQ='.'
 	local _X=' ' # curl -X
-	local _d=' ' # curl -d
+	local _D=' ' # curl -d
 
 	while [[ ${ARGV[${ARGP}]} ]]; do
 		local _ARG=${ARGV[${ARGP}]}
@@ -421,7 +430,7 @@ o_topic() {
 			"get") ;;
 			"set")
 				_state=1
-				_X="-X PUT"
+				_X="PUT"
 				;;
 			esac
 			;;
@@ -435,7 +444,6 @@ o_topic() {
 					_json="\"${_t}\""
 				fi
 			done
-			_d="-d \"{\"names\":[${_json}]}\""
 			;;
 		esac
 	done
@@ -444,11 +452,24 @@ o_topic() {
 		local _TOK=${MY_GIT[${_r}.tok]}
 		local _URI=${MY_GIT[${_r}.uri]}
 		local _USR=${MY_GIT[${_r}.usr]}
+		local _VEN=${MY_GIT[${_r}.ven]}
 		local _API=${_URI}/repos/${_USR}/${REPO}/topics
+
+		if [[ ${_json} ]]; then
+			case ${_VEN} in
+			"github")
+				_D="{\"names\":[${_json}]}"
+				;;
+			"gogs" | "gitea")
+				_D="{\"topics\":[${_json}]}"
+				;;
+			esac
+		fi
+
 		echo ${_r}:${_API}
 		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG o_topic:_X:${_X}
-		[[ ${_DEBUG} ]] && [[ ${_d} ]] && LOG o_topic:_d:${_d}
-		API_CURL "${_API}" "${_TOK}" "${_X}" "${_d}" "${_jq}"
+		[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG o_topic:_D:${_D}
+		API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
 		echo ---
 	done
 }
