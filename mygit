@@ -1,0 +1,496 @@
+#!bash
+
+# {$@} Log message
+LOG() {
+	#	[ -n "${fileLOG}" ] && {echo "$@" >>${fileLOG}}
+	echo -e "log:$@"
+}
+
+# ${@s} CMD
+RUN_CMD() {
+	local _CMD="${@}"
+
+	[ ${_DEBUG} ] && LOG "CMD:${_CMD}"
+
+	${_CMD}
+	local _RTN=$?
+
+	[ ${_RTN} -ne 0 ] && LOG "CMD:${_CMD} error:${_RTN}"
+
+	return ${_RTN}
+}
+
+# ${1} _API
+# ${2} _TOK
+# ${3} _X
+# ${4} _d
+# ${5} _jq
+API_CURL() {
+	local _me="API_CURL"
+
+	local _API=${1}
+	local _TOK=${2}
+	local _X=${3}
+	local _d=${4}
+	local _jq=${5}
+
+	if [[ ${_DEBUG} ]]; then
+		LOG ${_me}:_API:${_API}
+		LOG ${_me}:_TOK:${_TOK}
+		LOG ${_me}:_X:${_X}
+		LOG ${_me}:_d:${_d}
+		LOG ${_me}:_jq:${_jq}
+	fi
+
+	curl -s \
+		${_X} \
+		-H "Accept: application/vnd.github.mercy-preview+json" \
+		-H "Accept: application/vnd.github.v3+json" \
+		-H "Content-Type: application/json" \
+		-H "Authorization: token ${_TOK}" \
+		${_d} \
+		${_API} | jq ${_jq}
+}
+
+# Add remote in group to global var REMOTE
+ADD_GROUP() {
+	local _me="ADD_GROUP"
+	[[ ${_DEBUG} ]] && LOG ${_me}:${@}
+
+	local _group=${@}
+	for _g in ${_group}; do
+		for _r in ${MY_GIT_REMOTE}; do
+			[[ "${MY_GIT[${_r}.grp]}" = "${_g}" ]] && ! $(_in_group ${_r} "${REMOTE}") && REMOTE+=" ${_r}"
+		done
+	done
+}
+
+# Add to global var REMOTE
+ADD_REMOTE() {
+	local _me="ADD_REMOTE"
+	[[ ${_DEBUG} ]] && LOG ${_me}:${@}
+
+	local _remote=${@}
+	for _r in ${_remote}; do
+		$(_in_group ${_r} "${MY_GIT_REMOTE}") && ! $(_in_group ${_r} "${REMOTE}") && REMOTE+=" ${_r}"
+	done
+}
+
+# Merge git remove with REMOTE
+MERGE_REMOTE() {
+	local _remote=''
+
+	if [[ ${REMOTE} ]]; then
+		for _r in $(git remote); do
+			$(_in_group ${_r} "${REMOTE}") && _remote+=" ${_r}"
+		done
+	else
+		_remote=$(git remote)
+	fi
+
+	echo ${_remote}
+}
+
+# Check if a word is inside a group(string)
+# ${1} word
+# ${2} group
+_in_group() {
+	local _word=${1}
+	local _group=${2}
+	for _g in ${_group}; do
+		[ ${_g} == ${_word} ] && return 0
+	done
+	return 1
+}
+
+# Extract all groups from MY_GIT
+_mygit_group() {
+	local _group=''
+	local _remote=$(_mygit_remote)
+	for _r in ${_remote}; do
+		local _g=${MY_GIT[${_r}.grp]}
+		! $(_in_group ${_g} "${_group}") && _group+=" ${_g}"
+	done
+	echo ${_group}
+}
+
+# Extract all remotes from MY_GIT
+_mygit_remote() {
+	local _remote=''
+	local _key
+
+	if [ ${BASH_VERSION} ]; then
+		_key=${!MY_GIT[@]}
+	fi
+
+	for _i in ${_key}; do
+		local _r=${_i%.*}
+		! $(_in_group ${_r} "${_remote}") && _remote+=" ${_r}"
+	done
+	echo ${_remote}
+}
+
+# ${1} site
+_mygit_remote_add() {
+	local _remote=${1}
+
+	local _SSH=${MY_GIT[${_remote}.ssh]}
+	local _USR=${MY_GIT[${_remote}.usr]}
+	local _GIT="${_SSH}:/${_USR}/${REPO}.git"
+	RUN_CMD "git remote add ${_remote} ${_GIT}"
+}
+
+_mygit_remote_clear() {
+	local _remote=$(git remote 2>/dev/null)
+	local _result=$?
+	if [[ ${_result} == 0 ]]; then
+		for _r in ${_remote}; do
+			RUN_CMD "git remote remove ${_r}"
+		done
+	fi
+}
+
+option() {
+	local _me="option"
+	local _state=0
+
+	while [[ ${ARGV[${ARGP}]} ]]; do
+		[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
+		local _ARG=${ARGV[${ARGP}]}
+		((ARGP++))
+		case ${_state} in
+		0)
+			case ${_ARG} in
+			"-g" | "--group")
+				_state=1
+				;;
+			"-r" | "--remote")
+				_state=2
+				;;
+			"description" | "desc")
+				RUN_CMD "o_desc"
+				;;
+			"fetch")
+				RUN_CMD "c_fetch"
+				;;
+			"group")
+				echo ${MY_GIT_GROUP}
+				;;
+			"init")
+				RUN_CMD "o_init"
+				;;
+			"push")
+				RUN_CMD "o_push"
+				;;
+			"repo")
+				RUN_CMD "o_repo"
+				;;
+			"remote")
+				for _r in ${MY_GIT_REMOTE}; do
+					echo "${_r} (${MY_GIT[${_r}.grp]})"
+				done
+				;;
+			"topic")
+				RUN_CMD "o_topic"
+				;;
+			*)
+				echo usage
+				return 1
+				;;
+			esac
+			;;
+		1)
+			# group
+			_state=0
+			ADD_GROUP ${_ARG}
+			[[ ${_DEBUG} ]] && LOG "option:-g:${REMOTE}"
+			;;
+		2)
+			# site
+			_state=0
+			ADD_REMOTE ${_ARG}
+			[[ ${_DEBUG} ]] && LOG "option:-r:${REMOTE}"
+			;;
+		esac
+	done
+
+}
+
+o_desc() {
+	local _me="o_desc"
+	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
+
+	local _state=0
+	local _X=' ' # curl -X
+	local _d=' ' # curl -d
+	local _jq=".description"
+
+	while [[ ${ARGV[${ARGP}]} ]]; do
+		local _ARG=${ARGV[${ARGP}]}
+		((ARGP++))
+		case ${_state} in
+		0)
+			case ${_ARG} in
+			"get") ;;
+
+			"set")
+				_state=1
+				_X="-X PATCH"
+				;;
+			*)
+				echo "usage desc get | set"
+				;;
+			esac
+			;;
+		1)
+			_state=0
+			[[ ${_DEBUG} ]] && LOG ${_me}:_ARG:${_ARG}
+			_d="-d \"{\"description\":\"${_ARG}\"}\""
+			;;
+		esac
+	done
+
+	for _r in $(MERGE_REMOTE); do
+		local _TOK=${MY_GIT[${_r}.tok]}
+		local _URI=${MY_GIT[${_r}.uri]}
+		local _USR=${MY_GIT[${_r}.usr]}
+		local _API=${_URI}/repos/${_USR}/${REPO}
+		echo ${_r}:${_API}
+		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG ${_me}:_X:${_X}
+		[[ ${_DEBUG} ]] && [[ ${_d} ]] && LOG ${_me}:_d:${_d}
+		API_CURL "${_API}" "${_TOK}" "${_X}" "${_d}" "${_jq}"
+		echo ---
+	done
+}
+
+c_fetch() {
+	local _me="c_fetch"
+	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
+
+	local _remote=$(MERGE_REMOTE)
+
+	for _r in ${_remote}; do
+		echo remote:${_r}
+		RUN_CMD "git fetch $_r"
+		echo ---
+	done
+}
+
+o_init() {
+
+	local _me="o_init"
+	[[ ${_DEBUG} ]] && LOG ${_me}:REMOTE:${REMOTE}
+
+	if [[ ! ${REMOTE} ]]; then
+		echo "usage -g|--group <group> init"
+		echo "usage -r|--remote <remote> init"
+		exit 1
+	fi
+
+	git init
+
+	# Clear remote
+	_mygit_remote_clear
+
+	# Lopp site
+	for _r in ${REMOTE}; do
+		_mygit_remote_add ${_r}
+	done
+}
+
+o_push() {
+	local _me="o_push"
+	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
+
+	local _OPT=''
+	local _BRANCH=''
+
+	local _ARG=${ARGV[${ARGP}]}
+	case ${_ARG} in
+	"") ;;
+	"master")
+		_OPT="-u" # set upstream
+		_BRANCH="master"
+		;;
+	*)
+		echo "usage: push | push master"
+		;;
+	esac
+
+	for _r in $(MERGE_REMOTE); do
+		RUN_CMD "git push ${_OPT} ${_r} ${_BRANCH}"
+		RUN_CMD "git push ${_r} --tags"
+	done
+
+}
+
+o_repo() {
+	local _me="o_repo"
+	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
+
+	local _action
+	local _private=true
+	local _remote=''
+	local _X=' ' # curl -X
+	local _d=' ' # curl -d
+	local _jq="."
+
+	local _ARG=${ARGV[${ARGP}]}
+	((ARGP++))
+	case ${_ARG} in
+	"list")
+		_action="list"
+		;;
+	"del")
+		_action="del"
+		_X="-X DELETE"
+		;;
+	"new")
+		_action="new"
+		;;
+	"--pri" | "--private")
+		_private=true
+		;;
+	"--pub" | "--public")
+		_private=false
+		;;
+	*)
+		echo usage: ${_me}
+		return 1
+		;;
+	esac
+
+	if [[ "${_action}" = "list" ]]; then
+		if [[ ${REMOTE} ]]; then
+			# list only rely on MY_GIT config
+			_remote=${REMOTE}
+		else
+			# if no group/remote specified, then list all
+			_remote=${MY_GIT_REMOTE}
+		fi
+	else
+		_remote=$(MERGE_REMOTE)
+	fi
+
+	for _r in ${_remote}; do
+		local _TOK=${MY_GIT[${_r}.tok]}
+		local _URI=${MY_GIT[${_r}.uri]}
+		local _USR=${MY_GIT[${_r}.usr]}
+		local _VEN=${MY_GIT[${_r}.ven]}
+		local _API
+		if [[ "${_action}" = "list" ]]; then
+			_API=${_URI}/user/repos
+			if [ "${_VEN}" = "github" ]; then
+				_jq='-r .[]|select(.archived==false)|{name}|.name'
+			else
+				_jq='-r .[]|{name}|.name'
+			fi
+		elif [[ "${_action}" = "new" ]]; then
+			_API=${_URI}/user/repos
+			_d="-d {\"name\":\"${REPO}\",\"private\":${_private}}"
+		elif [[ "${_action}" = "del" ]]; then
+			_API=${_URI}/repos/${_USR}/${REPO}
+		else
+			echo usage: ${_me}
+			return
+		fi
+		echo ${_r}:${_API}
+		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG ${_me}:_X:${_X}
+		[[ ${_DEBUG} ]] && [[ ${_d} ]] && LOG ${_me}:_d:${_d}
+		API_CURL "${_API}" "${_TOK}" "${_X}" "${_d}" "${_jq}"
+		echo ---
+	done
+}
+
+o_topic() {
+
+	local _me="o_topic"
+	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
+
+	local _state=0
+	local _json=''
+	local _X=' ' # curl -X
+	local _d=' ' # curl -d
+
+	while [[ ${ARGV[${ARGP}]} ]]; do
+		local _ARG=${ARGV[${ARGP}]}
+		((ARGP++))
+		case ${_state} in
+		0)
+			case ${_ARG} in
+			"get") ;;
+			"set")
+				_state=1
+				_X="-X PUT"
+				;;
+			esac
+			;;
+		1)
+			_state=0
+			[[ ${_DEBUG} ]] && LOG o_topic:_ARG:${_ARG}
+			for _t in ${_ARG}; do
+				if [ ${_json} ]; then
+					_json+=",\"${_t}\""
+				else
+					_json="\"${_t}\""
+				fi
+			done
+			_d="-d \"{\"names\":[${_json}]}\""
+			;;
+		esac
+	done
+
+	for _r in $(MERGE_REMOTE); do
+		local _TOK=${MY_GIT[${_r}.tok]}
+		local _URI=${MY_GIT[${_r}.uri]}
+		local _USR=${MY_GIT[${_r}.usr]}
+		local _API=${_URI}/repos/${_USR}/${REPO}/topics
+		echo ${_r}:${_API}
+		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG o_topic:_X:${_X}
+		[[ ${_DEBUG} ]] && [[ ${_d} ]] && LOG o_topic:_d:${_d}
+		API_CURL "${_API}" "${_TOK}" "${_X}" "${_d}" "${_jq}"
+		echo ---
+	done
+}
+
+# ---
+
+# Minimum bash version 4
+[[ ${BASH_VERSION} ]] && [[ ${BASH_VERSION} < 4 ]] && echo "${BASH_VERSION} < 4" && exit 1
+
+# CONF
+CONF=~/.mygit.conf
+if [ -f ${CONF} ]; then
+	source ${CONF}
+else
+	echo "${CONF} not found."
+	exit 1
+fi
+MY_GIT_REMOTE=$(_mygit_remote)
+MY_GIT_GROUP=$(_mygit_group)
+
+# ARG
+ARGP=1
+ARGC=${#@}
+declare -a ARGV
+_c=1
+for _j in "${@}"; do
+	ARGV[${_c}]=${_j}
+	((_c++))
+done
+
+REPO=${PWD##*/}
+REMOTE=''
+
+# DEBUG
+if [[ ${_DEBUG} ]]; then
+	LOG BASH_VERSION:${BASH_VERSION}
+	LOG MY_GIT_REMOTE:${MY_GIT_REMOTE}
+	LOG MY_GIT_GROUP:${MY_GIT_GROUP}
+	for _i in $(seq 1 ${#ARGV[@]}); do
+		LOG ARGV[${_i}]:${ARGV[${_i}]}
+	done
+	LOG REPO:${REPO}
+fi
+
+option
