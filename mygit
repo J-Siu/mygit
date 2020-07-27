@@ -198,7 +198,7 @@ option() {
 					echo "${_r} (${MY_GIT[${_r}.grp]})"
 				done
 				;;
-			"topic")
+			"topic" | "topics")
 				RUN_CMD "o_topic"
 				;;
 			*)
@@ -316,6 +316,9 @@ o_push() {
 	local _ARG=${ARGV[${ARGP}]}
 	case ${_ARG} in
 	"") ;;
+	"all")
+		_BRANCH="--all"
+		;;
 	"master")
 		_OPT="-u" # set upstream
 		_BRANCH="master"
