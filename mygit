@@ -175,9 +175,6 @@ option() {
 			"-r" | "--remote")
 				_state=2
 				;;
-			"description" | "desc")
-				RUN_CMD "o_desc"
-				;;
 			"fetch")
 				RUN_CMD "c_fetch"
 				;;
@@ -197,9 +194,6 @@ option() {
 				for _r in ${MY_GIT_REMOTE}; do
 					echo "${_r} (${MY_GIT[${_r}.grp]})"
 				done
-				;;
-			"topic" | "topics")
-				RUN_CMD "o_topic"
 				;;
 			*)
 				echo usage
@@ -222,53 +216,6 @@ option() {
 		esac
 	done
 
-}
-
-o_desc() {
-	local _me="o_desc"
-	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
-
-	local _state=0
-	local _X=' ' # curl -X
-	local _D=' ' # curl -d
-	local _JQ="-r .description"
-
-	while [[ ${ARGV[${ARGP}]} ]]; do
-		local _ARG=${ARGV[${ARGP}]}
-		((ARGP++))
-		case ${_state} in
-		0)
-			case ${_ARG} in
-			"get") ;;
-
-			"set")
-				_state=1
-				_X="PATCH"
-				;;
-			*)
-				echo "usage desc get | set"
-				;;
-			esac
-			;;
-		1)
-			_state=0
-			[[ ${_DEBUG} ]] && LOG ${_me}:_ARG:${_ARG}
-			_D="{\"description\":\"${_ARG}\"}"
-			;;
-		esac
-	done
-
-	for _r in $(MERGE_REMOTE); do
-		local _TOK=${MY_GIT[${_r}.tok]}
-		local _URI=${MY_GIT[${_r}.uri]}
-		local _USR=${MY_GIT[${_r}.usr]}
-		local _API=${_URI}/repos/${_USR}/${REPO}
-		echo ${_r}:${_API}
-		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG ${_me}:_X:${_X}
-		[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG ${_me}:_D:${_D}
-		API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
-		echo ---
-	done
 }
 
 c_fetch() {
@@ -339,37 +286,74 @@ o_repo() {
 	local _me="o_repo"
 	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
 
+	local _state=0
 	local _action
-	local _private=true
+	local _desc=''
+	local _topic=''
+	local _private=''
 	local _remote=''
 	local _X=' ' # curl -X
 	local _D=' ' # curl -d
 	local _JQ="."
 
-	local _ARG=${ARGV[${ARGP}]}
-	((ARGP++))
-	case ${_ARG} in
-	"list")
-		_action="list"
-		;;
-	"del")
-		_action="del"
-		_X="DELETE"
-		;;
-	"new")
-		_action="new"
-		;;
-	"--pri" | "--private")
-		_private=true
-		;;
-	"--pub" | "--public")
-		_private=false
-		;;
-	*)
-		echo usage: ${_me}
-		return 1
-		;;
-	esac
+	while [[ ${ARGV[${ARGP}]} ]]; do
+		local _ARG=${ARGV[${ARGP}]}
+		((ARGP++))
+		case ${_state} in
+		0)
+
+			case ${_ARG} in
+			"del")
+				_action="del"
+				;;
+			"desc" | "description")
+				_action="desc"
+				_state=1
+				;;
+			"ls" | "list")
+				_action="ls"
+				;;
+			"new")
+				_action="new"
+				;;
+			"topic" | "topics")
+				_action="topic"
+				_state=2
+				;;
+			"vis" | "visibility")
+				_action="vis"
+				;;
+			"--pri" | "--private")
+				_private=true
+				;;
+			"--pub" | "--public")
+				_private=false
+				;;
+			*)
+				echo usage: ${_me}
+				return 1
+				;;
+			esac
+			;;
+		1)
+			[[ ${_DEBUG} ]] && LOG o_repo:1:_ARG:${_ARG}
+			_state=0
+			_desc="${_ARG}"
+			;;
+		2)
+			[[ ${_DEBUG} ]] && LOG o_repo:2:_ARG:${_ARG}
+			_state=0
+			for _t in ${_ARG}; do
+				if [ ${_topic} ]; then
+					_topic+=",\"${_t}\""
+				else
+					_topic="\"${_t}\""
+				fi
+			done
+			;;
+
+		esac
+	done
 
 	if [[ "${_action}" = "list" ]]; then
 		if [[ ${REMOTE} ]]; then
@@ -389,7 +373,18 @@ o_repo() {
 		local _USR=${MY_GIT[${_r}.usr]}
 		local _VEN=${MY_GIT[${_r}.ven]}
 		local _API
-		if [[ "${_action}" = "list" ]]; then
+
+		if [[ "${_action}" = "del" ]]; then
+			_API=${_URI}/repos/${_USR}/${REPO}
+			_X="DELETE"
+		elif [[ "${_action}" = "desc" ]]; then
+			_API=${_URI}/repos/${_USR}/${REPO}
+			_JQ="-r .description"
+			if [[ ${_desc} ]]; then
+				_D="{\"description\":\"${_desc}\"}"
+				_X="PATCH"
+			fi
+		elif [[ "${_action}" = "ls" ]]; then
 			_API=${_URI}/user/repos
 			if [ "${_VEN}" = "github" ]; then
 				_JQ='-r .[]|select(.archived==false)|{name}|.name'
@@ -397,81 +392,38 @@ o_repo() {
 				_JQ='-r .[]|{name}|.name'
 			fi
 		elif [[ "${_action}" = "new" ]]; then
+			[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG ${_me}:_private:${_private}
 			_API=${_URI}/user/repos
 			_D="{\"name\":\"${REPO}\",\"private\":${_private}}"
-		elif [[ "${_action}" = "del" ]]; then
+		elif [[ "${_action}" = "topic" ]]; then
+			_API=${_URI}/repos/${_USR}/${REPO}/topics
+			if [[ ${_topic} ]]; then
+				_X="PUT"
+				case ${_VEN} in
+				"github")
+					_D="{\"names\":[${_topic}]}"
+					;;
+				"gogs" | "gitea")
+					_D="{\"topics\":[${_topic}]}"
+					;;
+				esac
+			fi
+		elif [[ "${_action}" = "vis" ]]; then
+			[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG ${_me}:_private:${_private}
 			_API=${_URI}/repos/${_USR}/${REPO}
+			_JQ='({private})|to_entries[]|"\(.key)=\(.value)"'
+			if [[ ${_private} ]]; then
+				_D="{\"private\":${_private}}"
+				_X="PATCH"
+			fi
 		else
 			echo usage: ${_me}
 			return
 		fi
+
 		echo ${_r}:${_API}
 		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG ${_me}:_X:${_X}
 		[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG ${_me}:_D:${_D}
-		API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
-		echo ---
-	done
-}
-
-o_topic() {
-
-	local _me="o_topic"
-	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
-
-	local _state=0
-	local _json=''
-	local _JQ='.'
-	local _X=' ' # curl -X
-	local _D=' ' # curl -d
-
-	while [[ ${ARGV[${ARGP}]} ]]; do
-		local _ARG=${ARGV[${ARGP}]}
-		((ARGP++))
-		case ${_state} in
-		0)
-			case ${_ARG} in
-			"get") ;;
-			"set")
-				_state=1
-				_X="PUT"
-				;;
-			esac
-			;;
-		1)
-			_state=0
-			[[ ${_DEBUG} ]] && LOG o_topic:_ARG:${_ARG}
-			for _t in ${_ARG}; do
-				if [ ${_json} ]; then
-					_json+=",\"${_t}\""
-				else
-					_json="\"${_t}\""
-				fi
-			done
-			;;
-		esac
-	done
-
-	for _r in $(MERGE_REMOTE); do
-		local _TOK=${MY_GIT[${_r}.tok]}
-		local _URI=${MY_GIT[${_r}.uri]}
-		local _USR=${MY_GIT[${_r}.usr]}
-		local _VEN=${MY_GIT[${_r}.ven]}
-		local _API=${_URI}/repos/${_USR}/${REPO}/topics
-
-		if [[ ${_json} ]]; then
-			case ${_VEN} in
-			"github")
-				_D="{\"names\":[${_json}]}"
-				;;
-			"gogs" | "gitea")
-				_D="{\"topics\":[${_json}]}"
-				;;
-			esac
-		fi
-
-		echo ${_r}:${_API}
-		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG o_topic:_X:${_X}
-		[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG o_topic:_D:${_D}
 		API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
 		echo ---
 	done

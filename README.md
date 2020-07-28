@@ -1,19 +1,37 @@
-## mygit
+## MyGit - Git action with group
 
-- Selector
-  - [x] -g/--group
-  - [x] -r/--remote
+### Why
+
+Constantly dealing with repositories on different git servers
+
+### Who
+
+### Limitation
+
+### Features
+
 - Info
   - [x] remote
   - [x] group
+- Selector
+  - [x] -g/--group
+  - [x] -r/--remote
 - Git
   - [x] fetch
   - [x] init
   - [x] push /master/all
 - API
-  - [x] repo del/list/new
-  - [x] description get/set
-  - [x] topic get/set
+  - [x] repo
+    - [x] --pri/--private
+    - [x] --pub/--public
+    - [x] del
+    - [x] ls/list
+    - [x] new
+    - [x] vis/visibility
+    - [x] desc/description
+    - [x] topic/topics
+
+### Usage
 
 ### TO-DO
 
