@@ -158,8 +158,24 @@ _mygit_remote_clear() {
 	fi
 }
 
+_mygit_usage() {
+	echo 'mygit remote                                                       # Show remotes in config'
+	echo 'mygit group                                                        # Show groups in config'
+	echo 'mygit [-g <group>] [-r <remote>] fetch                             # Git fetch'
+	echo 'mygit [-g <group>] [-r <remote>] init [<repository name>]          # Git init'
+	echo 'mygit [-g <group>] [-r <remote>] push [--all|--master]             # Git push'
+	echo 'mygit [-g <group>] [-r <remote>] repo                              # API get remote repository information'
+	echo 'mygit [-g <group>] [-r <remote>] repo ls [--archive]               # API list all remote repository'
+	echo 'mygit [-g <group>] [-r <remote>] repo del                          # API delete remote repository'
+	echo 'mygit [-g <group>] [-r <remote>] repo new [--pri|--pub]            # API create remote repository'
+	echo 'mygit [-g <group>] [-r <remote>] repo vis/visibility [--pri|--pub] # API change remote repository visibility'
+	echo 'mygit [-g <group>] [-r <remote>] repo desc "<description>"         # API change remote repository description'
+	echo 'mygit [-g <group>] [-r <remote>] repo topic "<topics...>"          # API change remote repository topic'
+}
+
 option() {
 	local _me="option"
+	local _action=''
 	local _state=0
 
 	while [[ ${ARGV[${ARGP}]} ]]; do
@@ -176,27 +192,34 @@ option() {
 				_state=2
 				;;
 			"fetch")
+				_action='fetch'
 				RUN_CMD "c_fetch"
 				;;
 			"group")
+				_action='group'
 				echo ${MY_GIT_GROUP}
 				;;
 			"init")
+				_action='init'
 				RUN_CMD "c_init"
 				;;
 			"push")
+				_action='push'
 				RUN_CMD "o_push"
 				;;
 			"repo" | "repository")
+				_action='repo'
 				RUN_CMD "o_repo"
 				;;
 			"remote")
+				_action='remote'
 				for _r in ${MY_GIT_REMOTE}; do
 					echo "${_r} (${MY_GIT[${_r}.grp]})"
 				done
 				;;
 			*)
-				echo usage
+				_action='usage'
+				_mygit_usage
 				return 1
 				;;
 			esac
@@ -217,6 +240,8 @@ option() {
 			;;
 		esac
 	done
+
+	[[ ! ${_action} ]] && _mygit_usage
 
 }
 
