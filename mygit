@@ -41,13 +41,13 @@ API_CURL() {
 	[[ ! ${_X} = ' ' ]] && _x="-X"
 
 	if [[ ${_DEBUG} ]]; then
-		LOG ${_me}:_API:${_API}
-		LOG ${_me}:_D:${_D}
-		LOG ${_me}:_JQ:${_JQ}
-		LOG ${_me}:_TOK:${_TOK}
-		LOG ${_me}:_X:${_X}
-		LOG ${_me}:_d:${_d}
-		LOG ${_me}:_x:${_x}
+		LOG "${_me}:_API:${_API}"
+		LOG "${_me}:_D:${_D}"
+		LOG "${_me}:_JQ:${_JQ}"
+		LOG "${_me}:_TOK:${_TOK}"
+		LOG "${_me}:_X:${_X}"
+		LOG "${_me}:_d:${_d}"
+		LOG "${_me}:_x:${_x}"
 	fi
 
 	curl -s \
@@ -63,12 +63,12 @@ API_CURL() {
 # Add all remotes in group to global var REMOTE
 ADD_GROUP() {
 	local _me="ADD_GROUP"
-	[[ ${_DEBUG} ]] && LOG ${_me}:${@}
+	[[ ${_DEBUG} ]] && LOG "${_me}:${@}"
 
 	local _group=${@}
 	for _g in ${_group}; do
 		for _r in ${MY_GIT_REMOTE}; do
-			[[ "${MY_GIT[${_r}.grp]}" = "${_g}" ]] && ! $(_in_group ${_r} "${REMOTE}") && REMOTE+=" ${_r}"
+			[[ "${MY_GIT[${_r}.grp]}" = "${_g}" ]] && ! _in_group ${_r} "${REMOTE}" && REMOTE+=" ${_r}"
 		done
 	done
 }
@@ -76,55 +76,61 @@ ADD_GROUP() {
 # Add remote to global var REMOTE
 ADD_REMOTE() {
 	local _me="ADD_REMOTE"
-	[[ ${_DEBUG} ]] && LOG ${_me}:${@}
+	[[ ${_DEBUG} ]] && LOG "${_me}:${@}"
 
 	local _remote=${@}
 	for _r in ${_remote}; do
-		$(_in_group ${_r} "${MY_GIT_REMOTE}") && ! $(_in_group ${_r} "${REMOTE}") && REMOTE+=" ${_r}"
+		_in_group ${_r} "${MY_GIT_REMOTE}" && ! _in_group ${_r} "${REMOTE}" && REMOTE+=" ${_r}"
 	done
 }
 
 # Join git remote with REMOTE
 MERGE_REMOTE() {
-	local _remote=''
+	local __remote=''
 
 	if [[ ${REMOTE} ]]; then
-		for _r in $(git remote); do
-			$(_in_group ${_r} "${REMOTE}") && _remote+=" ${_r}"
+		for _x in $(git remote); do
+			_in_group ${_x} "${REMOTE}" && __remote+=" ${_x}"
 		done
 	else
-		_remote=$(git remote)
+		__remote=$(git remote)
 	fi
 
-	echo ${_remote}
+	echo ${__remote}
 }
 
 # Check word in group(string)
 # ${1} word
 # ${2} group
 _in_group() {
+	local _me="_in_group"
 	local _word=${1}
 	local _group=${2}
-	for _g in ${_group}; do
-		[ ${_g} == ${_word} ] && return 0
+	for _x in ${_group}; do
+		[ ${_x} == ${_word} ] && return 0
 	done
 	return 1
 }
 
 # Extract all groups from MY_GIT
 _mygit_group() {
-	local _group=''
-	local _remote=$(_mygit_remote)
+	local _me="_mygit_group"
+
+	[[ ! ${MY_GIT_REMOTE} ]] && _mygit_remote
+	local _remote=${MY_GIT_REMOTE}
+
+	[[ ${_DEBUG} ]] && LOG "${_me}:_remote:${_remote}"
+
 	for _r in ${_remote}; do
 		local _g=${MY_GIT[${_r}.grp]}
-		! $(_in_group ${_g} "${_group}") && _group+=" ${_g}"
+		[[ ${_DEBUG} ]] && LOG "${_me}:_g:${_g}"
+		! _in_group ${_g} "${MY_GIT_GROUP}" && MY_GIT_GROUP+=" ${_g}"
+		[[ ${_DEBUG} ]] && LOG "${_me}:MY_GIT_GROUP:${MY_GIT_GROUP}"
 	done
-	echo ${_group}
 }
 
 # Extract all remotes from MY_GIT
 _mygit_remote() {
-	local _remote=''
 	local _key
 
 	if [ ${BASH_VERSION} ]; then
@@ -133,9 +139,8 @@ _mygit_remote() {
 
 	for _i in ${_key}; do
 		local _r=${_i%.*}
-		! $(_in_group ${_r} "${_remote}") && _remote+=" ${_r}"
+		! _in_group ${_r} "${MY_GIT_REMOTE}" && MY_GIT_REMOTE+=" ${_r}"
 	done
-	echo ${_remote}
 }
 
 # ${1} site
@@ -179,7 +184,7 @@ option() {
 	local _state=0
 
 	while [[ ${ARGV[${ARGP}]} ]]; do
-		[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
+		[[ ${_DEBUG} ]] && LOG "${_me}:ARGP:${ARGP}"
 		local _ARG=${ARGV[${ARGP}]}
 		((ARGP++))
 		case ${_state} in
@@ -226,14 +231,14 @@ option() {
 			;;
 		1)
 			# group
-			! _in_group ${_ARG} ${MY_GIT_GROUP} && echo "Group ${_ARG} not found." && exit 1
+			! _in_group ${_ARG} "${MY_GIT_GROUP}" && echo "Group ${_ARG} not found." && exit 1
 			_state=0
 			ADD_GROUP ${_ARG}
 			[[ ${_DEBUG} ]] && LOG "option:-g:${REMOTE}"
 			;;
 		2)
 			# remote
-			! _in_group ${_ARG} ${MY_GIT_REMOTE} && echo "Remote ${_ARG} not found." && exit 1
+			! _in_group ${_ARG} "${MY_GIT_REMOTE}" && echo "Remote ${_ARG} not found." && exit 1
 			_state=0
 			ADD_REMOTE ${_ARG}
 			[[ ${_DEBUG} ]] && LOG "option:-r:${REMOTE}"
@@ -247,7 +252,7 @@ option() {
 
 c_fetch() {
 	local _me="c_fetch"
-	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
+	[[ ${_DEBUG} ]] && LOG "${_me}:ARGP:${ARGP}"
 
 	for _r in $(MERGE_REMOTE); do
 		echo remote:${_r}
@@ -259,8 +264,8 @@ c_fetch() {
 c_init() {
 
 	local _me="o_init"
-	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
-	[[ ${_DEBUG} ]] && LOG ${_me}:REMOTE:${REMOTE}
+	[[ ${_DEBUG} ]] && LOG "${_me}:ARGP:${ARGP}"
+	[[ ${_DEBUG} ]] && LOG "${_me}:REMOTE:${REMOTE}"
 
 	if [[ ${ARGV[${ARGP}]} ]]; then
 		REPO=${ARGV[${ARGP}]}
@@ -287,7 +292,7 @@ c_init() {
 
 o_push() {
 	local _me="o_push"
-	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
+	[[ ${_DEBUG} ]] && LOG "${_me}:ARGP:${ARGP}"
 
 	local _OPT=''
 	local _BRANCH=''
@@ -321,7 +326,7 @@ o_push() {
 
 o_repo() {
 	local _me="o_repo"
-	[[ ${_DEBUG} ]] && LOG ${_me}:ARGP:${ARGP}
+	[[ ${_DEBUG} ]] && LOG "${_me}:ARGP:${ARGP}"
 
 	local _state=0
 	local _action
@@ -376,12 +381,12 @@ o_repo() {
 			esac
 			;;
 		1)
-			[[ ${_DEBUG} ]] && LOG o_repo:1:_ARG:${_ARG}
+			[[ ${_DEBUG} ]] && LOG "${_me}:1:_ARG:${_ARG}"
 			_state=0
 			_desc="${_ARG}"
 			;;
 		2)
-			[[ ${_DEBUG} ]] && LOG o_repo:2:_ARG:${_ARG}
+			[[ ${_DEBUG} ]] && LOG "${_me}:2:_ARG:${_ARG}"
 			_state=0
 			for _t in ${_ARG}; do
 				if [ ${_topic} ]; then
@@ -448,7 +453,7 @@ o_repo() {
 					_private=true
 				fi
 			fi
-			[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG ${_me}:_private:${_private}
+			[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG "${_me}:_private:${_private}"
 			_API=${_URI}/user/repos
 			_D="{\"name\":\"${REPO}\",\"private\":${_private}}"
 		elif [[ "${_action}" = "topic" ]]; then
@@ -465,7 +470,7 @@ o_repo() {
 				esac
 			fi
 		elif [[ "${_action}" = "vis" ]]; then
-			[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG ${_me}:_private:${_private}
+			[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG "${_me}:_private:${_private}"
 			_API=${_URI}/repos/${_USR}/${REPO}
 			_JQ='({private})|to_entries[]|"\(.key)=\(.value)"'
 			if [[ ${_private} ]]; then
@@ -478,8 +483,8 @@ o_repo() {
 		fi
 
 		echo ${_r}:${_API}
-		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG ${_me}:_X:${_X}
-		[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG ${_me}:_D:${_D}
+		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG "${_me}:_X:${_X}"
+		[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG "${_me}:_D:${_D}"
 		API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
 		echo ---
 	done
@@ -499,8 +504,10 @@ else
 	echo "${CONF} not found."
 	exit 1
 fi
-MY_GIT_REMOTE=$(_mygit_remote)
-MY_GIT_GROUP=$(_mygit_group)
+MY_GIT_REMOTE=''
+MY_GIT_GROUP=''
+_mygit_remote
+_mygit_group
 
 # ARG
 ARGP=1
