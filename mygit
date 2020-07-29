@@ -298,6 +298,7 @@ o_repo() {
 
 	local _state=0
 	local _action
+	local _archive
 	local _desc=''
 	local _topic=''
 	local _private=''
@@ -337,6 +338,9 @@ o_repo() {
 				;;
 			"--pub" | "--public")
 				_private=false
+				;;
+			"--archive" | "--archived")
+				_archive=true
 				;;
 			*)
 				echo usage: ${_me}
@@ -400,10 +404,14 @@ o_repo() {
 			_API=${_URI}/user/repos
 			if [ "${_VEN}" = "github" ]; then
 				_API="${_API}?per_page=100"
-				_JQ='-r .[]|select(.archived==false)|{name}|.name'
 			else # gogs/gitea
 				_API="${_API}?limit=100"
+			fi
+
+			if [[ ${_archive} ]]; then
 				_JQ='-r .[]|{name}|.name'
+			else
+				_JQ='-r .[]|select(.archived==false)|{name}|.name'
 			fi
 		elif [[ "${_action}" = "new" ]]; then
 			if [[ ! ${_private} ]]; then

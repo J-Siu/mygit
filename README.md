@@ -31,6 +31,9 @@
     - [desc/description](#descdescription)
     - [topic/topics](#topictopics)
     - [ls/list](#lslist)
+- [New Repository Workflow](#new-repository-workflow)
+- [Repository](#repository)
+- [Contributors](#contributors)
 - [Change Log](#change-log)
 - [License](#license)
 
@@ -38,8 +41,9 @@
 
 ### Who & Why
 
-- Work with repositories that push to multiple git servers
+- Creating repositories for same set of remote servers repeatedly
 - Setting up repositories on multiple machines repeatedly
+- Working with repositories that push to same set of git servers
 
 ### Features
 
@@ -62,6 +66,7 @@
     - [x] --pub/--public
     - [x] del/delete
     - [x] ls/list
+      - [x] --archive
     - [x] new
     - [x] vis/visibility
     - [x] desc/description
@@ -385,15 +390,18 @@ mygit -g external repo topic "topic1 topic2 topic3"
 
 `mygit repo ls` will list up to 100 repositories on remote server. This command does not depend on repository.
 
+By default archived repositories are filtered out. Use `--archive` to show them also.
+
 ```sh
 mygit repo ls
+mygit repo ls --archive
 mygit -g internal repo ls
 mygit -r gh repo ls
 ```
 
-### Example
+### New Repository Workflow
 
-Assuming `~/.mygit.conf` is setup. Setting up a new repository:
+Assuming `~/.mygit.conf` is setup.
 
 ```sh
 mygit init
@@ -408,7 +416,6 @@ mygit push --master
 ### Contributors
 
 - [John Sing Dao Siu](https://github.com/J-Siu)
-
 
 ### Change Log
 
