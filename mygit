@@ -293,6 +293,8 @@ o_push() {
 	local _BRANCH=''
 
 	local _ARG=${ARGV[${ARGP}]}
+	((ARGP++))
+
 	case ${_ARG} in
 	"") ;;
 	"--all")
