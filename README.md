@@ -39,7 +39,7 @@
 ### Who & Why
 
 - Work with repositories that push to multiple git servers
-- Setting up repos on multiple machines repeatedly
+- Setting up repositories on multiple machines repeatedly
 
 ### Features
 
@@ -196,7 +196,7 @@ mygit -r gh -r server3 <command>
 `-g/--group` and `-r/--remote` can be used at the same time.
 
 ```sh
-mygit -g external -s server2 <command>
+mygit -g external -r server2 <command>
 ```
 
 #### Git Base Commands
@@ -265,11 +265,11 @@ server3 git@server3:/username3/mygit2.git (push)
 `mygit push` will do `git push` and `git push --tag` base on `-g`/`-r` selector. If no group nor remote are specified, all configured remotes will be pushed in sequence.
 
 ```sh
-$ mygit push
+mygit push
 ```
 
 ```sh
-$ mygit -r gh push
+mygit -r gh push
 ```
 
 `mygit push` support options `--master` and `--all`
@@ -279,7 +279,7 @@ $ mygit -r gh push
 If `--master` is used, `mygit push` will push to upstream(`-u`) master branch.
 
 ```sh
-$ mygit push --master
+mygit push --master
 ```
 
 ###### --all
@@ -287,7 +287,7 @@ $ mygit push --master
 If `--all` is used, `mygit push` will push all branches(`--all`).
 
 ```sh
-$ mygit -r gh push --all
+mygit -r gh push --all
 ```
 
 ##### fetch
@@ -295,11 +295,11 @@ $ mygit -r gh push --all
 `fetch` will do `git fetch` base on `-g`/`-r` selector. If no group nor remote are specified, all configured remotes will be fetched in sequence.
 
 ```sh
-$ mygit fetch
+mygit fetch
 ```
 
 ```sh
-$ mygit -r gh fetch
+mygit -r gh fetch
 ```
 
 #### API Base Commands
@@ -350,6 +350,8 @@ mygit -g external repo vis --pri
 
 ##### del/delete
 
+> THERE IS NO CONFIRMATION FOR DELETION.
+
 `mygit repo del` will delete repository from remote.
 
 ```sh
@@ -388,6 +390,25 @@ mygit repo ls
 mygit -g internal repo ls
 mygit -r gh repo ls
 ```
+
+### Example
+
+Assuming `~/.mygit.conf` is setup. Setting up a new repository:
+
+```sh
+mygit init
+mygit repo new
+mygit push --master
+```
+
+### Repository
+
+- [mygit](https://github.com/J-Siu/mygit)
+
+### Contributors
+
+- [John Sing Dao Siu](https://github.com/J-Siu)
+
 
 ### Change Log
 
