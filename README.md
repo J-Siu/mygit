@@ -421,6 +421,19 @@ mygit push --master
 
 - 0.1.0
   - Feature complete
+- 0.2.0
+  - README.md completed
+  - add -g/-r checking
+  - add init repository name support
+  - add repo get info
+  - add repo ls --archive flag
+  - add usage
+  - change push master/all to flag(--)
+  - fix comment typo
+  - fix repo del github del token logic
+  - fix repo ls gogs/gitea support
+  - fix repo new visibility logic
+  - move desc, topic into repo
 
 ### License
 
