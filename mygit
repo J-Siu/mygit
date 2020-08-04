@@ -1,4 +1,4 @@
-#!bash
+#!/usr/bin/env bash
 
 # {$@} Log message
 LOG() {
