@@ -231,17 +231,19 @@ option() {
 			;;
 		1)
 			# group
+			[[ ${_DEBUG} ]] && LOG "${_me}:-g"
 			! _in_group ${_ARG} "${MY_GIT_GROUP}" && echo "Group ${_ARG} not found." && exit 1
 			_state=0
 			ADD_GROUP ${_ARG}
-			[[ ${_DEBUG} ]] && LOG "option:-g:${REMOTE}"
+			[[ ${_DEBUG} ]] && LOG "${_me}:REMOTE:${REMOTE}"
 			;;
 		2)
 			# remote
+			[[ ${_DEBUG} ]] && LOG "${_me}:-r"
 			! _in_group ${_ARG} "${MY_GIT_REMOTE}" && echo "Remote ${_ARG} not found." && exit 1
 			_state=0
 			ADD_REMOTE ${_ARG}
-			[[ ${_DEBUG} ]] && LOG "option:-r:${REMOTE}"
+			[[ ${_DEBUG} ]] && LOG "${_me}:REMOTE:${REMOTE}"
 			;;
 		esac
 	done
@@ -341,6 +343,7 @@ o_repo() {
 
 	while [[ ${ARGV[${ARGP}]} ]]; do
 		local _ARG=${ARGV[${ARGP}]}
+		[[ ${_DEBUG} ]] && LOG "${_me}:ARG[${ARGP}]:${_ARG}"
 		((ARGP++))
 		case ${_state} in
 		0)
@@ -400,7 +403,8 @@ o_repo() {
 		esac
 	done
 
-	if [[ "${_action}" = "ls" ]]; then
+	case ${_action} in
+	"ls")
 		if [[ ${REMOTE} ]]; then
 			# list only rely on MY_GIT config
 			_remote=${REMOTE}
@@ -408,10 +412,22 @@ o_repo() {
 			# if no group/remote specified, then list all
 			_remote=${MY_GIT_REMOTE}
 		fi
-	else
+		;;
+	"del")
+		if [[ ${REMOTE} ]]; then
+			# list only rely on MY_GIT config
+			_remote=${REMOTE}
+		else
+			# if no group/remote specified, then use local remote (git remote -v)
+			_remote=$(MERGE_REMOTE)
+		fi
+		;;
+	*)
 		_remote=$(MERGE_REMOTE)
-	fi
+		;;
+	esac
 
+	[[ ${_DEBUG} ]] && LOG "${_me}:_remote:${_remote}"
 	for _r in ${_remote}; do
 		local _DEL=${MY_GIT[${_r}.del]}
 		local _PRI=${MY_GIT[${_r}.pri]}
@@ -421,18 +437,22 @@ o_repo() {
 		local _VEN=${MY_GIT[${_r}.ven]}
 		local _API
 
-		if [[ "${_action}" = "del" ]]; then
+		[[ ${_DEBUG} ]] && LOG "${_me}:_action:${_action}"
+		case ${_action} in
+		"del")
 			_API=${_URI}/repos/${_USR}/${REPO}
 			_X="DELETE"
 			[[ ${_DEL} ]] && _TOK=${_DEL}
-		elif [[ "${_action}" = "desc" ]]; then
+			;;
+		"desc")
 			_API=${_URI}/repos/${_USR}/${REPO}
 			_JQ="-r .description"
 			if [[ ${_desc} ]]; then
 				_D="{\"description\":\"${_desc}\"}"
 				_X="PATCH"
 			fi
-		elif [[ "${_action}" = "ls" ]]; then
+			;;
+		"ls")
 			_API=${_URI}/user/repos
 			if [ "${_VEN}" = "github" ]; then
 				_API="${_API}?per_page=100"
@@ -445,7 +465,8 @@ o_repo() {
 			else
 				_JQ='-r .[]|select(.archived==false)|{name}|.name'
 			fi
-		elif [[ "${_action}" = "new" ]]; then
+			;;
+		"new")
 			if [[ ! ${_private} ]]; then
 				if [[ ${_PRI} ]]; then
 					_private=${_PRI}
@@ -456,7 +477,8 @@ o_repo() {
 			[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG "${_me}:_private:${_private}"
 			_API=${_URI}/user/repos
 			_D="{\"name\":\"${REPO}\",\"private\":${_private}}"
-		elif [[ "${_action}" = "topic" ]]; then
+			;;
+		"topic")
 			_API=${_URI}/repos/${_USR}/${REPO}/topics
 			if [[ ${_topic} ]]; then
 				_X="PUT"
@@ -469,7 +491,8 @@ o_repo() {
 					;;
 				esac
 			fi
-		elif [[ "${_action}" = "vis" ]]; then
+			;;
+		"vis")
 			[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG "${_me}:_private:${_private}"
 			_API=${_URI}/repos/${_USR}/${REPO}
 			_JQ='({private})|to_entries[]|"\(.key)=\(.value)"'
@@ -477,10 +500,13 @@ o_repo() {
 				_D="{\"private\":${_private}}"
 				_X="PATCH"
 			fi
-		else # Get repo remote info
+			;;
+		*)
+			Get repo remote info
 			_API=${_URI}/repos/${_USR}/${REPO}
 			_JQ='.'
-		fi
+			;;
+		esac
 
 		echo ${_r}:${_API}
 		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG "${_me}:_X:${_X}"
