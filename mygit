@@ -174,7 +174,7 @@ _mygit_remote_clear() {
 }
 
 _mygit_usage() {
-	echo 'mygit'
+	echo 'mygit version 0.2.2'
 	echo 'License : MIT License Copyright (c) 2020 John Siu'
 	echo 'Support : https://github.com/J-Siu/mygit/issues'
 	echo 'Debug   : export _DEBUG=true'
