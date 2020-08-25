@@ -458,6 +458,8 @@ mygit push --master
   - fix _in_group call missing "" for group
   - fix _in_group call wrapped with $() incorrectly
   - fix _in_group var conflict, change _g -> _x
+- 0.2.2
+  - fix repo new visibility
 
 ### License
 
