@@ -174,7 +174,7 @@ _mygit_remote_clear() {
 }
 
 _mygit_usage() {
-	echo 'mygit version 0.2.2'
+	echo 'mygit version 0.2.3'
 	echo 'License : MIT License Copyright (c) 2020 John Siu'
 	echo 'Support : https://github.com/J-Siu/mygit/issues'
 	echo 'Debug   : export _DEBUG=true'
@@ -185,12 +185,15 @@ _mygit_usage() {
 	echo 'mygit [-g <group>] [-r <remote>] init [<repository name>]          # Git init'
 	echo 'mygit [-g <group>] [-r <remote>] push [--all|--master]             # Git push'
 	echo 'mygit [-g <group>] [-r <remote>] repo                              # API get remote repository information'
-	echo 'mygit [-g <group>] [-r <remote>] repo ls [--archive]               # API list all remote repository'
 	echo 'mygit [-g <group>] [-r <remote>] repo del                          # API delete remote repository'
-	echo 'mygit [-g <group>] [-r <remote>] repo new [--pri|--pub]            # API create remote repository'
-	echo 'mygit [-g <group>] [-r <remote>] repo vis/visibility [--pri|--pub] # API change remote repository visibility'
 	echo 'mygit [-g <group>] [-r <remote>] repo desc "<description>"         # API change remote repository description'
+	echo 'mygit [-g <group>] [-r <remote>] repo ls [--archive]               # API list all remote repository'
+	echo 'mygit [-g <group>] [-r <remote>] repo new [--pri|--pub]            # API create remote repository'
 	echo 'mygit [-g <group>] [-r <remote>] repo topic "<topics...>"          # API change remote repository topic'
+	echo 'mygit [-g <group>] [-r <remote>] repo vis/visibility [--pri|--pub] # API change remote repository visibility'
+	echo '-- GitHub only --'
+	echo 'mygit [-g <group>] [-r <remote>] wf|workflow                       # API workflow list'
+	echo 'mygit [-g <group>] [-r <remote>] wf|workflow disp|dispatch <event> # API workflow dispatch'
 }
 
 option() {
@@ -230,6 +233,10 @@ option() {
 			"repo" | "repository")
 				_action='repo'
 				RUN_CMD "o_repo"
+				;;
+			"wf" | "workflow")
+				_action='wf'
+				RUN_CMD "o_wf"
 				;;
 			"remote")
 				_action='remote'
@@ -358,8 +365,8 @@ o_repo() {
 
 	while [[ ${ARGV[${ARGP}]} ]]; do
 		local _ARG=${ARGV[${ARGP}]}
-		[[ ${_DEBUG} ]] && LOG "${_me}:ARG[${ARGP}]:${_ARG}"
 		((ARGP++))
+		[[ ${_DEBUG} ]] && LOG "${_me}:${_state}:_ARG[${ARGP}]:${_ARG}"
 		case ${_state} in
 		0)
 			case ${_ARG} in
@@ -399,12 +406,10 @@ o_repo() {
 			esac
 			;;
 		1)
-			[[ ${_DEBUG} ]] && LOG "${_me}:1:_ARG:${_ARG}"
 			_state=0
 			_desc="${_ARG}"
 			;;
 		2)
-			[[ ${_DEBUG} ]] && LOG "${_me}:2:_ARG:${_ARG}"
 			_state=0
 			for _t in ${_ARG}; do
 				if [ ${_topic} ]; then
@@ -418,6 +423,7 @@ o_repo() {
 		esac
 	done
 
+	# Calculate remote
 	case ${_action} in
 	"ls")
 		if [[ ${REMOTE} ]]; then
@@ -517,7 +523,7 @@ o_repo() {
 			fi
 			;;
 		*)
-			Get repo remote info
+			# Get repo remote info
 			_API=${_URI}/repos/${_USR}/${REPO}
 			_JQ='.'
 			;;
@@ -528,6 +534,84 @@ o_repo() {
 		[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG "${_me}:_D:${_D}"
 		API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
 		echo ---
+	done
+}
+
+o_wf() {
+	local _me="o_wf"
+	[[ ${_DEBUG} ]] && LOG "${_me}:ARGP:${ARGP}"
+
+	local _state=0
+	local _action
+	local _archive
+	local _desc=''
+	local _topic=''
+	local _private=''
+	local _remote=''
+	local _X=' ' # curl -X
+	local _D=' ' # curl -d
+	local _JQ="."
+
+	while [[ ${ARGV[${ARGP}]} ]]; do
+		local _ARG=${ARGV[${ARGP}]}
+		((ARGP++))
+		[[ ${_DEBUG} ]] && LOG "${_me}:${_state}:_ARG[${ARGP}]:${_ARG}"
+		case ${_state} in
+		0)
+			case ${_ARG} in
+			"disp" | "dispatch")
+				_action="disp"
+				_state=1
+				;;
+			*)
+				echo usage: ${_me}
+				return 1
+				;;
+			esac
+			;;
+		1)
+			_state=0
+			_event="${_ARG}"
+			;;
+		esac
+	done
+
+	# Calculate remote
+	_remote=$(MERGE_REMOTE)
+
+	[[ ${_DEBUG} ]] && LOG "${_me}:_remote:${_remote}"
+	for _r in ${_remote}; do
+		local _DEL=${MY_GIT[${_r}.del]}
+		local _PRI=${MY_GIT[${_r}.pri]}
+		local _TOK=${MY_GIT[${_r}.tok]}
+		local _URI=${MY_GIT[${_r}.uri]}
+		local _USR=${MY_GIT[${_r}.usr]}
+		local _VEN=${MY_GIT[${_r}.ven]}
+		local _API
+
+		if [[ ${_VEN} == "github" ]]; then
+			[[ ${_DEBUG} ]] && LOG "${_me}:_action:${_action}"
+			case ${_action} in
+			"disp")
+				_API=${_URI}/repos/${_USR}/${REPO}/dispatches
+				_D="{\"event_type\":\"${_event}\""
+				_JQ='.'
+				_X="POST"
+				;;
+			*)
+				# List workflow in repo
+				_API=${_URI}/repos/${_USR}/${REPO}/actions/workflows
+				_JQ='.'
+				_X="GET"
+				;;
+			esac
+
+			echo ${_r}:${_API}
+			[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG "${_me}:_X:${_X}"
+			[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG "${_me}:_D:${_D}"
+			API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
+			echo ---
+		fi
 	done
 }
 
