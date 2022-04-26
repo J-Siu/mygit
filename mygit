@@ -547,13 +547,13 @@ o_repo() {
 			_kid=$(echo ${_result} | jq -r .key_id)
 			_key=$(echo ${_result} | jq -r .key)
 			#set DOCKER_HUB_USER
-			_val=$(go-sodium box sealanonymous -k ${_key} -m ${DOCKER_HUB_USER})
+			_val=$(go-crypto box sealanonymous -k ${_key} -m ${DOCKER_HUB_USER})
 			_API=${_URI}/repos/${_USR}/${REPO}/actions/secrets/DOCKER_HUB_USER
 			_X="PUT"
 			_D="{\"encrypted_value\":\"${_val}\",\"key_id\":\"${_kid}\"}"
 			API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
 			#set DOCKER_HUB_TOKEN
-			_val=$(go-sodium box sealanonymous -k ${_key} -m ${DOCKER_HUB_TOKEN})
+			_val=$(go-crypto box sealanonymous -k ${_key} -m ${DOCKER_HUB_TOKEN})
 			_API=${_URI}/repos/${_USR}/${REPO}/actions/secrets/DOCKER_HUB_TOKEN
 			_X="PUT"
 			_D="{\"encrypted_value\":\"${_val}\",\"key_id\":\"${_kid}\"}"
