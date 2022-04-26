@@ -377,11 +377,17 @@ o_repo() {
 				_action="desc"
 				_state=1
 				;;
+			"docker")
+				_action="docker"
+				;;
 			"ls" | "list")
 				_action="ls"
 				;;
 			"new")
 				_action="new"
+				;;
+			"key")
+				_action="key"
 				;;
 			"topic" | "topics")
 				_action="topic"
@@ -459,11 +465,15 @@ o_repo() {
 		local _API
 
 		[[ ${_DEBUG} ]] && LOG "${_me}:_action:${_action}"
+		[[ ${_DEBUG} ]] && LOG "${_me}:_USR:${_USR}"
 		case ${_action} in
 		"del")
 			_API=${_URI}/repos/${_USR}/${REPO}
 			_X="DELETE"
 			[[ ${_DEL} ]] && _TOK=${_DEL}
+			;;
+		"key")
+			_API=${_URI}/repos/${_USR}/${REPO}/actions/secrets/public-key
 			;;
 		"desc")
 			_API=${_URI}/repos/${_USR}/${REPO}
@@ -529,11 +539,34 @@ o_repo() {
 			;;
 		esac
 
-		echo ${_r}:${_API}
-		[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG "${_me}:_X:${_X}"
-		[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG "${_me}:_D:${_D}"
-		API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
-		echo ---
+		case ${_action} in
+		"docker")
+			#get repo key
+			_API=${_URI}/repos/${_USR}/${REPO}/actions/secrets/public-key
+			_result=$(API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}")
+			_kid=$(echo ${_result} | jq -r .key_id)
+			_key=$(echo ${_result} | jq -r .key)
+			#set DOCKER_HUB_USER
+			_val=$(go-sodium box sealanonymous -k ${_key} -m ${DOCKER_HUB_USER})
+			_API=${_URI}/repos/${_USR}/${REPO}/actions/secrets/DOCKER_HUB_USER
+			_X="PUT"
+			_D="{\"encrypted_value\":\"${_val}\",\"key_id\":\"${_kid}\"}"
+			API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
+			#set DOCKER_HUB_TOKEN
+			_val=$(go-sodium box sealanonymous -k ${_key} -m ${DOCKER_HUB_TOKEN})
+			_API=${_URI}/repos/${_USR}/${REPO}/actions/secrets/DOCKER_HUB_TOKEN
+			_X="PUT"
+			_D="{\"encrypted_value\":\"${_val}\",\"key_id\":\"${_kid}\"}"
+			API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
+			;;
+		*)
+			echo ${_r}:${_API}
+			[[ ${_DEBUG} ]] && [[ ${_X} ]] && LOG "${_me}:_X:${_X}"
+			[[ ${_DEBUG} ]] && [[ ${_D} ]] && LOG "${_me}:_D:${_D}"
+			API_CURL "${_API}" "${_TOK}" "${_X}" "${_D}" "${_JQ}"
+			echo ---
+			;;
+		esac
 	done
 }
 
