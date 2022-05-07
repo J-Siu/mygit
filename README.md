@@ -1,5 +1,7 @@
 ## MyGit - Git action with group
 
+> [go-mygit](https://github.com/J-Siu/go-mygit) replaced this project.
+
 <!-- TOC -->
 
 - [Who & Why](#who--why)
