@@ -1,7 +1,10 @@
-## MyGit - Git action with group
+## MyGit [![Paypal donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif)](https://www.paypal.com/donate/?business=HZF49NM9D35SJ&no_recurring=0&currency_code=CAD)
+
+Bash script doing git actions with group support.
 
 > [go-mygit](https://github.com/J-Siu/go-mygit) replaced this project.
 
+### Table Of Content
 <!-- TOC -->
 
 - [Who & Why](#who--why)
