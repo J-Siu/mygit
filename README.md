@@ -7,6 +7,7 @@ Bash script doing git actions with group support.
 ### Table Of Content
 <!-- TOC -->
 
+- [Table Of Content](#table-of-content)
 - [Who & Why](#who--why)
 - [Features](#features)
 - [Limitation](#limitation)
@@ -46,6 +47,7 @@ Bash script doing git actions with group support.
 - [License](#license)
 
 <!-- /TOC -->
+<!--more-->
 
 ### Who & Why
 
