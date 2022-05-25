@@ -2,8 +2,6 @@
 
 Bash script doing git actions with group support.
 
-> [go-mygit](https://github.com/J-Siu/go-mygit) replaced this project.
-
 ### Table Of Content
 <!-- TOC -->
 
@@ -48,6 +46,8 @@ Bash script doing git actions with group support.
 
 <!-- /TOC -->
 <!--more-->
+
+> [go-mygit](https://github.com/J-Siu/go-mygit) replaced this project.
 
 ### Who & Why
 
